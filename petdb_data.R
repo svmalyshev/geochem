@@ -1,26 +1,25 @@
-setwd("~/OneDrive/14-r/petdb/")
+setwd("~/") # рабочая директория где лежит исходный csv файл
 
+#======= подключение библиотек ======
 library(dplyr)
 library(ggplot2)
 library(latex2exp)
 
-data <- read.csv("earthchem_download_14558.txt", sep = "\t", header = T)
+data <- read.csv("earthchem_download_14558.txt", sep = "\t", header = T) # читаем файл и записываем в массив data
+ox.el <- data.frame(data[,c(18:30)]) # делаем таблицу с оксидами
+tas <- ox.el[,c(1,2,11,12)] # оставляем название обстановки, SiO2, K2O и Na2O для построения TAS диаграммы
 
-ox.el <- data.frame(data[,c(18:30)])
 
-summary(ox.el$K2O)
-
-tas <- ox.el[,c(1,2,11,12)]
-
+# ==== имеет смысл посмотреть данные и немного их пофильтровать ====
 tas <- filter(tas, K2O < 10)
 tas <- filter(tas, SIO2 > 30)
-tas <- tas %>% filter(!is.na(tas$NA2O))
-tas <- data.frame(tas)
+tas <- tas %>% filter(!is.na(tas$NA2O)) # удаление строк с отсутствующими значениями в ячейках
+tas <- data.frame(tas) 
 
 
-plot(tas$SIO2,tas$K2O)
+plot(tas$SIO2,tas$K2O) # проверка обработки таблицы
 
-#---------------- TAS ----------------------
+#---------------- здесь скрипт по созданию полей значений на  TAS диаграмме ----------------------
 library(plyr)
 points <- data.frame(
   rbind(c( 1,41,0),
@@ -110,27 +109,32 @@ colnames(Labs) = c("Label","X","Y")
 Labs[6,3] <- 13
 Labs[12,3] <- 7
 Labs[2,3] <- 1.5
+# -------------------------------- шаблон готов -------------------------
 
-
-tas_dia1 <- ggplot(tas, aes(x=SIO2, y=K2O+NA2O, color=TECTONIC.SETTING)) + geom_point() +
+# строим с помощью библиотеки ggplot
+tas_dia <- ggplot(tas, aes(x=SIO2, y=K2O+NA2O, color=TECTONIC.SETTING)) + geom_point() +
   geom_polygon(data=df,aes(X,Y, group=Label),color="black", alpha=0.01, show.legend=F) +
   geom_text(data=Labs,aes(X,Y,label=Label),size=2.7,color="black", alpha=0.8) +
   theme_bw()
 
-tas_dia1
+tas_dia # вывод на экран диаграммы
 
-
+ggsave("tas.pdf", plot=tas_dia, width = 25, height = 15, units = c("cm")) # запись диаграммы в pdf. файл
 #========================
+
+#======================== подготовка таблицы с редкими элементами ========
 
 tr.el <- data[,c(18,31:70)]
 tr.el <- data[,c("TECTONIC.SETTING","RB","BA","TH","U","TA","NB","LA","CE","PB","PR","SR","ND","ZR","HF","SM","EU","GD","TB","DY","Y","HO","ER","TM","YB","LU")]
 tr.el <- na.omit(tr.el)
 
 
-#------------------------- Pearce -------------------------------------------------
-#==================================================================================
+#------------------------- диаграмма Pearce -------------------------------------------------
+# подготовим столбцы с нужными отношениями (вообще это не обязательно, но так мы проверим в порядке ли данные)
+tr.el$nb_yb <- tr.el$NB/tr.el$YB
+tr.el$th_yb <- tr.el$TH/tr.el$YB
 
-
+# займемся шаблоном
 # Рисуем линии 
 pearce1 <- data.frame(
   rbind(c( 1,0.1,0.01),
@@ -153,10 +157,7 @@ MORB <- data.frame(
         c(2,3.5,0.25),
         c(3,23,2)))
 
-tr.el$nb_yb <- tr.el$NB/tr.el$YB
-
-tr.el$th_yb <- tr.el$TH/tr.el$YB
-
+# собственно графики со всей бижутерией
 n <- ggplot() +
   geom_point(data=tr.el, aes(nb_yb, y=th_yb, color=TECTONIC.SETTING), shape=21, size=3) +
   scale_x_continuous(trans = 'log10', limits=c(0.1, 100)) +
@@ -169,8 +170,6 @@ n <- ggplot() +
   theme(legend.position = c(.85, .2),
         legend.box.background = element_rect(color="black", size=0.5),
         legend.box.margin = margin(3, 3, 3, 3))
-
-n
 
 pearce <- n + geom_point(data=MORB, aes(x=X2,y=X3), shape = 23, size = 4, col = "red", fill = "yellow" ) +
   geom_path(data=pearce1, aes(X,Y)) + geom_path(data=pearce2, aes(X,Y)) + geom_path(data=pearce3, aes(X,Y)) +
@@ -188,9 +187,18 @@ pearce <- n + geom_point(data=MORB, aes(x=X2,y=X3), shape = 23, size = 4, col = 
 
 pearce
 
+ggsave("pearce.pdf", plot=pearce, width = 18, height = 17, units = c("cm"))
 
 
 #--------------Condie------------------
+# при обработке данных выяснилось, что Zr записан не как числа. Поэтому тут придется немного доработать этот момент. Также готовим столбцы с готовыми отношениями.
+tr.el <- filter(tr.el, ZR > 0)
+zr <- as.numeric(tr.el$ZR)
+tr.el$zr <- zr
+tr.el$nb_th <- tr.el$NB/tr.el$TH
+tr.el$zr_nb <- tr.el$zr/tr.el$NB
+
+#-------- построение полей шаблона -----
 library(plyr)
 
 points <- data.frame(
@@ -253,16 +261,6 @@ colnames(Labs) = c("Label","X","Y")
 Labs[3,2] <- 15
 Labs[3,3] <- 11
 
-#names <- as.data.frame(
-#          rbind(c("EN",3.5,17),
-#                c("PM",10,14),
-#                c("DM",21,35),
-#                c("DEP",26,12),
-#                c("REC",11,5)
-#          )
-#          )
-#colnames(names) = c("Label","X","Y")
-
 
 mantle <- data.frame(
   rbind(c(2,18),
@@ -273,22 +271,7 @@ mantle <- data.frame(
 )
 colnames(mantle) = c("X","Y")
 
-tr.el <- filter(tr.el, ZR > 0)
-
-
-
-zr <- as.numeric(tr.el$ZR)
-
-tr.el$zr <- zr
-
-
-
-
-
-tr.el$nb_th <- tr.el$NB/tr.el$TH
-
-tr.el$zr_nb <- tr.el$zr/tr.el$NB
-
+# строим график
 p3 <- ggplot(tr.el) + 
   # scale_x_continuous(limits=c(0, 10)) +
   # scale_y_continuous(limits=c(0.4, 1)) +
@@ -297,7 +280,7 @@ p3 <- ggplot(tr.el) +
   theme_bw()
 p3
 
-plot3_1 <- p3 + geom_point(data=tr.el,aes(nb_th, zr_nb, color=TECTONIC.SETTING), shape = 20, alpha=0.5, size = 1.5, stroke = 0.5) +
+condy_plot <- p3 + geom_point(data=tr.el,aes(nb_th, zr_nb, color=TECTONIC.SETTING), shape = 20, alpha=0.5, size = 2, stroke = 0.5) +
   geom_point(data=mantle, aes(X,Y), shape=19, size=5) +
   geom_polygon(data=df,aes(X,Y, group=Label),color="black", alpha=0.01, show.legend=F) +
   geom_text(data=Labs,aes(X,Y,label=Label),size=2.7,color="black", alpha=0.8) + 
@@ -312,9 +295,16 @@ plot3_1 <- p3 + geom_point(data=tr.el,aes(nb_th, zr_nb, color=TECTONIC.SETTING),
   scale_y_log10(limits=c(4, 100))  +
   theme(legend.position="none") 
 
-# theme(legend.position = c(.85, .75),
-#        legend.box.background = element_rect(color="black", size=0.3),
-#        legend.box.margin = margin(1, 1, 1, 1))
+condy_plot
+ggsave("condy.pdf", plot=condy_plot, width = 20, height = 15, units = c("cm")) 
+ 
 
-plot3_1
-ggsave("condy.pdf", plot=plot3_1, width = 20, height = 20, units = c("cm")) 
+# предыдущие графики показались сложными, поскольку на них много всяких полей и оформления.
+# последний график La/Nb -- Nb/Th покажется супер простым!
+
+last_plot <- ggplot(tr.el) + geom_point(aes(LA/NB,NB/TH, color=TECTONIC.SETTING), alpha=0.5) +
+  scale_x_continuous(limits=c(0, 10)) +
+  scale_y_continuous(limits=c(0, 50)) 
+last_plot 
+
+ggsave("plot3.pdf", plot=last_plot, width = 20, height = 15, units = c("cm"))
