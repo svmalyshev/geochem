@@ -198,7 +198,7 @@ tr.el$zr <- zr
 tr.el$nb_th <- tr.el$NB/tr.el$TH
 tr.el$zr_nb <- tr.el$zr/tr.el$NB
 
-#-------- построение полей шаблона -----
+#-------- построение полей шаблона ------
 library(plyr)
 
 points <- data.frame(
