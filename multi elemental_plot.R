@@ -92,5 +92,5 @@ spider <- base +
   geom_path(data=oib, aes(element, values, colour = "OIB"), size = 1.5) +
   geom_path(data=nmorb, aes(element, values, colour = "NMORB"), size = 1.5) 
 
-# получилась каша :) слишком много данных....
+# получилась каша :) слишком много данных...
 spider
